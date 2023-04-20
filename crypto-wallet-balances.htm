@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Wallet Balance Display with HTML + JS">
+  <meta name="author" content="MisterPunk">
+  <script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+  <!-- Bootstrap Core JavaScript -->
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+  <!-- Bootstrap Core CSS -->
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+</head>
+<div class="panel panel-primary">
+          <div class="panel-heading">
+            <i class="glyphicon glyphicon-gbp"></i> Crypto Wallets
+            <div class="pull-right">
+              <div class="btn-group">
+                <button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown"><span class="caret"></span></button>
+                <ul class="dropdown-menu pull-right" role="menu">
+                  <li><a href="#" onClick="$('#DivPanelCrypto').hide(); return false;">Hide</a></li>
+                  <li><a href="#" onClick="$('#DivPanelCrypto').show(); return false;">Show</a></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div id="DivPanelCrypto" class="panel-body" style="padding-bottom:0;">
+            <table class="table table-condensed table-hover">
+              <tr id="Row-4689" style="display:none;"><td><button class="btn btn-success" id="Button-Load-Network-4689">Load IoTeX Network</button></td></tr>
+              <tr>
+                <td><button class="btn btn-warning enableEthereumButton" id="Button-Load-Wallet">Load Wallet</button><span id="showAccount"></span></td>
+                <td class="text-right" id="crypto-balance"></td>
+                <td class="text-right" id="crypto-token-symbol"></td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+<script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+<script>
+// ATTENTION: METAMASK ONLY WORKS OVER HTTPS CONNECTIONS
+  
+let minABI = [ // The minimum ABI to get ERC20 Token balance
+  { "name":"balanceOf", "constant":true, "inputs":[{"name":"_owner","type":"address"}], "outputs":[{"name":"balance","type":"uint256"}], "type":"function" },
+  { "name":"decimals", "constant":true, "inputs":[], "outputs":[ {"name":"","type":"uint8"} ] }
+];
+
+const ethereumButton        = document.getElementById('Button-Load-Wallet');
+const ButtonLoadNetwork4689 = document.getElementById('Button-Load-Network-4689');
+const Row4689               = document.getElementById('Row-4689');
+const showAccount    = document.getElementById('showAccount');
+const divbalance     = document.getElementById('crypto-balance');
+const divsymbol      = document.getElementById('crypto-token-symbol');
+const tokenAddresses = [
+  { address: '', token: 'IOTX' },
+  { address: '0x985478eaca15464ad6968409e3e8a8b7c1675ae4', token: 'IOP' },
+  { address: '0xce300b00aa9c066786d609fc96529dbedaa30b76', token: 'NFT IoTeX Punks' },
+  { address: '0x0c5ab026d74c451376a4798342a685a0e99a5bee', token: 'NFT MachineFi' },
+  { address: '0x7722D6968c9BeD93052BEde0DA66c48A68801b9d', token: 'NFT Cartesi x IoTeX IdeaThon'},
+];
+
+var wallet_address = '', balance = '';
+
+
+$(document).ready(function() {
+  // If active network is not IoTeX, show button to switch to IoTeX
+  if (window.ethereum.networkVersion != 4689) {
+    Row4689.style.display = 'show';
+    ButtonLoadNetwork4689.addEventListener('click', () => { loadNetwork(); });
+  } else {
+    Row4689.style.display = 'none';
+    ethereumButton.addEventListener('click', () => { getAccount(); });
+    getAccount();
+  }
+});
+
+
+
+
+async function getAccount() {
+  const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+  wallet_address = accounts[0];
+  showAccount.innerHTML = wallet_address;
+  ethereumButton.style.display = 'none';
+  web3 = new Web3(window.ethereum);
+
+
+  for (iCounter=0; iCounter<tokenAddresses.length; iCounter++){
+    if (tokenAddresses[iCounter].address == ''){
+      balance = await web3.eth.getBalance(wallet_address);
+      balance = web3.utils.fromWei(balance);
+    } else {
+      contract = new web3.eth.Contract(minABI,tokenAddresses[iCounter].address);
+      balance = await contract.methods.balanceOf(wallet_address).call();
+      if (balance > 10000000000000) balance = web3.utils.fromWei(balance);
+    }
+    divbalance.innerHTML += parseFloat(balance).toLocaleString() + '<br />';
+    divsymbol.innerHTML  += tokenAddresses[iCounter].token + '<br />';
+  }
+
+}
+
+
+async function loadNetwork(){
+  try {
+    await ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: '0x1251' }],
+    });
+  } catch (switchError) {
+    // This error code indicates that the chain has not been added to MetaMask.
+    if (switchError.code === 4902) {
+      try {
+        await ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{ chainId: '0x1251', chainName: 'IoTeX Mainnet', rpcUrl: 'https://babel-api.mainnet.iotex.io/', blockExplorerUrls: 'https://iotexscan.io/' }],
+        });
+        getAccount();
+      } catch (addError) {
+        // handle "add" error
+      }
+    }
+    // handle other "switch" errors
+  }
+}
+</script>
